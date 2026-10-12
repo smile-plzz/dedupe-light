@@ -4,6 +4,20 @@ A lightweight, native Windows app for finding and safely handling exact duplicat
 
 DedupeLight scans any folder or drive, narrows candidates by file size, verifies matches with SHA-256, and caches unchanged fingerprints to make later scans faster. Nothing is removed automatically.
 
+## Download and test
+
+Download [DedupeLight for Windows x64](dist/DedupeLight-win-x64.zip), extract the ZIP, and run `DedupeLight.exe`.
+
+The package is self-contained and does not require a separate .NET installation. Windows may show a SmartScreen notice because the executable is not code-signed. Select **More info**, verify the publisher status, and choose **Run anyway** only if you downloaded it from this repository.
+
+SHA-256 for `DedupeLight-win-x64.zip`:
+
+```text
+7763D763CAC4FC22DB66EA2F145861D5B49BF296FEF701D410CEBA9AE67EE494
+```
+
+The complete project source is stored directly in the repository root.
+
 ## Features
 
 - Scan any folder or drive
