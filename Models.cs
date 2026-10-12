@@ -14,5 +14,5 @@ public sealed class DuplicateItem
     public string ModifiedText => ModifiedUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm");
 }
 
-public sealed record ScanOptions(long MinimumBytes, bool IncludeHiddenSystem);
+public sealed record ScanOptions(long MinimumBytes, bool IncludeHiddenSystem, IReadOnlyList<ExclusionRule>? Exclusions = null);
 public sealed record ScanResult(List<DuplicateItem> Items, int FilesSeen, int SizeCandidates, int FullHashes, int CacheHits, int Skipped);

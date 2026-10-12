@@ -103,18 +103,19 @@ public static class DuplicateScanner
         {
             token.ThrowIfCancellationRequested();
             var directory = pending.Pop();
+            if (ExclusionRules.Matches(directory, options.Exclusions)) continue;
             try
             {
                 foreach (var child in Directory.EnumerateDirectories(directory))
                 {
                     token.ThrowIfCancellationRequested();
-                    try { var info = new DirectoryInfo(child); if (!options.IncludeHiddenSystem && HasHiddenOrSystem(info.Attributes)) continue; if ((info.Attributes & FileAttributes.ReparsePoint) == 0) pending.Push(child); }
+                    try { if (ExclusionRules.Matches(child, options.Exclusions)) continue; var info = new DirectoryInfo(child); if (!options.IncludeHiddenSystem && HasHiddenOrSystem(info.Attributes)) continue; if ((info.Attributes & FileAttributes.ReparsePoint) == 0) pending.Push(child); }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { counters.Skipped++; }
                 }
                 foreach (var path in Directory.EnumerateFiles(directory))
                 {
                     token.ThrowIfCancellationRequested();
-                    try { var info = new FileInfo(path); if (info.Length >= options.MinimumBytes && (options.IncludeHiddenSystem || !HasHiddenOrSystem(info.Attributes))) files.Add(info); }
+                    try { if (ExclusionRules.Matches(path, options.Exclusions)) continue; var info = new FileInfo(path); if (info.Length >= options.MinimumBytes && (options.IncludeHiddenSystem || !HasHiddenOrSystem(info.Attributes))) files.Add(info); }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { counters.Skipped++; }
                 }
             }
