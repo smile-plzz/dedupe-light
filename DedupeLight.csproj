@@ -11,4 +11,5 @@
     <RootNamespace>DedupeLight</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
+  <ItemGroup><Compile Remove="tests/**/*.cs" /></ItemGroup>
 </Project>
