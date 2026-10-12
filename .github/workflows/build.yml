@@ -1,4 +1,4 @@
-name: Build Windows app
+name: Build and release DedupeLight
 
 on:
   push:
@@ -13,20 +13,81 @@ permissions:
 jobs:
   build:
     runs-on: windows-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 9.0.x
-      - name: Scanner regression checks
+      - name: Read product version
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$project = Get-Content DedupeLight.csproj
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid product version" }
+          "version=$version" >> $env:GITHUB_OUTPUT
+      - name: Scanner and feature regression checks
         run: dotnet run --project tests/ScannerChecks.csproj --configuration Release
+      - name: Validate icon
+        shell: pwsh
+        run: |
+          $bytes = [IO.File]::ReadAllBytes((Join-Path $PWD 'assets/dedupelight.ico'))
+          if ([BitConverter]::ToUInt16($bytes, 2) -ne 1 -or [BitConverter]::ToUInt16($bytes, 4) -ne 4) { throw "Invalid ICO directory" }
+          $sizes = @(16,32,48,0)
+          for ($i=0; $i -lt 4; $i++) {
+            if ($bytes[6 + $i*16] -ne $sizes[$i]) { throw "Missing icon resolution" }
+          }
+          $icon = [System.Drawing.Icon]::new((Join-Path $PWD 'assets/dedupelight.ico'))
+          $icon.Dispose()
       - name: Build
         run: dotnet build --configuration Release
       - name: Publish standalone app
         run: dotnet publish --configuration Release --runtime win-x64 --self-contained true --output publish
-      - name: Upload Windows executable
+      - name: Package portable release
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          New-Item -ItemType Directory -Force package, artifacts | Out-Null
+          Copy-Item publish/DedupeLight.exe package/
+          Copy-Item LICENSE, README.md, CHANGELOG.md package/
+          Copy-Item docs/USER_GUIDE.md, docs/RELEASE_STATUS.md package/
+          $zip = "artifacts/DedupeLight-$env:VERSION-win-x64.zip"
+          Compress-Archive -Path package/* -DestinationPath $zip -Force
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash
+          "$hash  $([IO.Path]::GetFileName($zip))" | Set-Content "$zip.sha256" -Encoding ascii
+      - name: Upload portable package
         uses: actions/upload-artifact@v6
         with:
           name: DedupeLight-win-x64
-          path: publish/DedupeLight.exe
+          path: artifacts/*
           if-no-files-found: error
+  release:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: dedupelight-release
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v6
+        with:
+          name: DedupeLight-win-x64
+          path: release
+      - name: Publish versioned release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release $tag already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create "$tag" "release/DedupeLight-$VERSION-win-x64.zip" "release/DedupeLight-$VERSION-win-x64.zip.sha256" --target "$GITHUB_SHA" --title "DedupeLight $VERSION" --notes-file CHANGELOG.md --latest
