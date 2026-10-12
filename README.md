@@ -25,7 +25,7 @@ The complete project source is stored directly in the repository root.
 - Sort results by set, name, location, size, or modified time
 - See duplicate-set count and recoverable space
 - Select extra copies while keeping the oldest, newest, or shortest-path copy
-- Safety check prevents recycling every copy in a set
+- Explicit, operation-only override for recycling every listed copy in a set
 - Open files or reveal them in Windows Explorer
 - Recycle, move, or copy selected files
 - Export results to CSV
@@ -51,7 +51,7 @@ The complete project source is stored directly in the repository root.
 
 - Nothing is removed automatically.
 - **Select extras** keeps the oldest file in each set unselected.
-- The app blocks a recycle operation that would remove every copy in a set.
+- Recycling every listed copy in a set requires typing `RECYCLE` in a separate override dialog. The normal recycle confirmation still follows.
 - Deletion uses the Windows Recycle Bin.
 - Locked and inaccessible folders are skipped instead of stopping the scan.
 
@@ -113,3 +113,29 @@ keyboard behavior and visible keyboard focus are retained.
 
 The refreshed UI compiles successfully; visual layout and interaction checks on
 Windows, including 125–200% display scaling, remain to be performed.
+
+## Intentional duplicates and review
+
+Select files and choose **Exclude file** to skip just those paths, or **Exclude
+folder** to skip their entire containing folders and subfolders. Files stay on
+disk. Exclusions affect current results and subsequent scans and are saved with
+preferences. **Excluded sources** lets you add files/folders, remove rules, or
+import/export the exclusion list as JSON. Rescan after removing a rule to bring
+that source back into results. Exporting exclusions does not copy media files.
+
+Select one row and choose **Review** for file details, an image preview, or
+embedded video/audio controls. Media playback depends on the optional Windows
+Media Player component and installed codecs; use **Open in default app** when
+unavailable. Playback does not start automatically. Review also offers file and
+folder exclusion shortcuts. Double-click a non-checkbox cell to open that exact
+file in its default Windows application.
+
+The delete override is never saved as a preference. It lists affected sets and
+paths; type the exact word **RECYCLE** to proceed, then confirm the normal
+Recycle Bin action. The warning refers to all listed copies in the current scan,
+not every copy that might exist elsewhere.
+
+Windows checks: select one vs all copies; cancel/accept the override; exclude
+one video and a folder; restart and rescan; export/import rules and restore a
+source; double-click a file; preview images; play/pause/close a video with and
+without Windows Media Player installed. GUI behavior requires Windows testing.

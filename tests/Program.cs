@@ -24,6 +24,28 @@ try
     Check(changed.Items.Count==0&&changed.FullHashes==2,"changed files invalidate full hashes");
     File.WriteAllText(cache,"invalid JSON");
     Check((await DuplicateScanner.FindAsync(root,cache,options,reports,CancellationToken.None)).Items.Count==0,"corrupt cache recovers");
+
+    var fileRules=new[] { new ExclusionRule(Path.Combine(root,"a.bin"),false) };
+    Check(ExclusionRules.Matches(Path.Combine(root,"a.bin"),fileRules),"exact file excluded");
+    Check(!ExclusionRules.Matches(Path.Combine(root,"b.bin"),fileRules),"other copy remains included");
+    var folder=Path.Combine(root,"protected");Directory.CreateDirectory(folder);
+    File.WriteAllBytes(Path.Combine(root,"b.bin"),data);
+    File.WriteAllBytes(Path.Combine(folder,"copy.bin"),data);
+    var folderRules=new[] { new ExclusionRule(folder,true) };
+    Check(ExclusionRules.Matches(Path.Combine(folder,"nested","copy.bin"),folderRules),"nested folder exclusion");
+    Check(!ExclusionRules.Matches(folder+"-other"+Path.DirectorySeparatorChar+"copy.bin",folderRules),"folder prefix boundary");
+    var excluded=await DuplicateScanner.FindAsync(root,cache,new ScanOptions(0,true,folderRules),reports,CancellationToken.None);
+    Check(excluded.Items.Count==0,"excluded folder skipped before duplicate detection");
+    var restored=await DuplicateScanner.FindAsync(root,cache,options,reports,CancellationToken.None);
+    Check(restored.Items.Count==2,"removing exclusion restores duplicates on next scan");
+    var saved=new AppSettings(Exclusions:folderRules.ToList());var settingsPath=Path.Combine(root,"settings.json");
+    saved.Save(settingsPath);Check(AppSettings.Load(settingsPath).Exclusions?.Count==1,"exclusions persist");
+    var legacyPath=Path.Combine(root,"legacy.json");File.WriteAllText(legacyPath,"{\"LastPath\":\"\",\"KeepRule\":0}");
+    Check(AppSettings.Load(legacyPath).Exclusions is null,"legacy settings migrate without exclusions");
+    var pair=restored.Items;
+    Check(RecyclePolicy.FullySelectedGroups(pair,[pair[0]]).Count==0,"keeping a copy needs no override");
+    Check(RecyclePolicy.FullySelectedGroups(pair,pair).Count==1,"all listed copies require override");
+    Check(RecyclePolicy.FullySelectedGroups(pair,[pair[0],pair[0]]).Count==0,"duplicate selection cannot bypass copy check");
     using var cancelled=new CancellationTokenSource();cancelled.Cancel();
     try{await DuplicateScanner.FindAsync(root,cache,options,reports,cancelled.Token);throw new Exception("Cancellation failed");}
     catch(OperationCanceledException){Console.WriteLine("PASS cancellation");}
