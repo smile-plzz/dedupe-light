@@ -18,6 +18,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: 9.0.x
+      - name: Scanner regression checks
+        run: dotnet run --project tests/ScannerChecks.csproj --configuration Release
       - name: Build
         run: dotnet build --configuration Release
       - name: Publish standalone app

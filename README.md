@@ -6,15 +6,13 @@ DedupeLight scans any folder or drive, narrows candidates by file size, verifies
 
 ## Download and test
 
-Download [DedupeLight for Windows x64](dist/DedupeLight-win-x64.zip), extract the ZIP, and run `DedupeLight.exe`.
+Download the current build from [GitHub Actions](https://github.com/smile-plzz/dedupe-light/actions/workflows/build.yml): open the successful run for the branch you want to test and download **DedupeLight-win-x64** under Artifacts. Extract it and run `DedupeLight.exe`.
 
-The package is self-contained and does not require a separate .NET installation. Windows may show a SmartScreen notice because the executable is not code-signed. Select **More info**, verify the publisher status, and choose **Run anyway** only if you downloaded it from this repository.
+The package is self-contained and does not require a separate .NET installation.
+The executable is not code-signed, so Windows may display a SmartScreen notice.
 
-SHA-256 for `DedupeLight-win-x64.zip`:
-
-```text
-7763D763CAC4FC22DB66EA2F145861D5B49BF296FEF701D410CEBA9AE67EE494
-```
+The package under `dist/` predates the responsiveness and interface repairs;
+use the Actions artifact when testing these changes.
 
 The complete project source is stored directly in the repository root.
 
@@ -80,3 +78,38 @@ The cache is stored under `%LOCALAPPDATA%\DedupeLight` and is not added to the r
 ## License
 
 [MIT](LICENSE)
+
+## Responsiveness repair
+
+The Windows package includes a repair for scans that displayed “Not Responding”.
+Folder discovery, cache loading, hashing, and cache saving now run on a worker
+thread. Copy, move, recycle, and CSV export also perform disk work in the
+background. Conflicting controls are disabled until the operation completes.
+Discovery checks cancellation between files and folders, and limits progress
+updates. Changed files invalidate both cached sample and full hashes.
+
+Run scanner regression checks with:
+
+```powershell
+dotnet run --project tests/ScannerChecks.csproj -c Release
+```
+
+Validation: scanner regression checks passed and the standalone Windows x64
+package compiled successfully. Windows GUI smoke testing is still required:
+scan a large drive, cancel during discovery, scan again to test cache reuse,
+and copy/move several large files while checking that the window repaints.
+Slow or disconnected drives can still delay an individual Windows filesystem
+call; cancellation takes effect when that call returns.
+
+## Interface refinement
+
+The refreshed native Windows interface uses a neutral palette, rounded buttons
+with short hover transitions, blue primary actions, and more space between
+controls. Selection controls and file actions occupy separate rows to avoid
+an overcrowded toolbar. Empty and filtered states provide guidance, long status
+messages truncate cleanly, and result search waits briefly for typing to pause.
+The result grid uses double buffering to reduce repaint flicker. Native button
+keyboard behavior and visible keyboard focus are retained.
+
+The refreshed UI compiles successfully; visual layout and interaction checks on
+Windows, including 125–200% display scaling, remain to be performed.

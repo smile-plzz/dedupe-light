@@ -10,7 +10,11 @@ public static class DuplicateScanner
     sealed record CacheEntry(long Size, long Ticks, string? SampleHash, string? FullHash);
     sealed class ScanCounters { public int Skipped; }
 
-    public static async Task<ScanResult> FindAsync(string root, string cachePath, ScanOptions options, IProgress<string> progress, CancellationToken token)
+    // Own the worker boundary so callers never enumerate or serialize on the UI thread.
+    public static Task<ScanResult> FindAsync(string root, string cachePath, ScanOptions options, IProgress<string> progress, CancellationToken token)
+        => Task.Run(() => FindCoreAsync(root, cachePath, options, progress, token), token);
+
+    static async Task<ScanResult> FindCoreAsync(string root, string cachePath, ScanOptions options, IProgress<string> progress, CancellationToken token)
     {
         var counters = new ScanCounters();
         var cache = Load(cachePath);
@@ -76,6 +80,7 @@ public static class DuplicateScanner
             if (count % 20 == 0 || count == fullCandidates.Count) progress.Report($"Verifying exact matches  •  {count:N0} / {fullCandidates.Count:N0}");
         });
 
+        token.ThrowIfCancellationRequested();
         Save(cachePath, updated);
         var groups = hashed.GroupBy(x => (x.File.Length, x.Hash)).Where(g => g.Count() > 1).OrderByDescending(g => g.Key.Length * (g.Count() - 1));
         var result = new List<DuplicateItem>();
@@ -91,6 +96,7 @@ public static class DuplicateScanner
     static List<FileInfo> Discover(string root, ScanOptions options, IProgress<string> progress, CancellationToken token, ScanCounters counters)
     {
         var files = new List<FileInfo>();
+        var lastReport = System.Diagnostics.Stopwatch.StartNew();
         var pending = new Stack<string>();
         pending.Push(root);
         while (pending.Count > 0)
@@ -101,17 +107,19 @@ public static class DuplicateScanner
             {
                 foreach (var child in Directory.EnumerateDirectories(directory))
                 {
+                    token.ThrowIfCancellationRequested();
                     try { var info = new DirectoryInfo(child); if (!options.IncludeHiddenSystem && HasHiddenOrSystem(info.Attributes)) continue; if ((info.Attributes & FileAttributes.ReparsePoint) == 0) pending.Push(child); }
-                    catch { counters.Skipped++; }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { counters.Skipped++; }
                 }
                 foreach (var path in Directory.EnumerateFiles(directory))
                 {
+                    token.ThrowIfCancellationRequested();
                     try { var info = new FileInfo(path); if (info.Length >= options.MinimumBytes && (options.IncludeHiddenSystem || !HasHiddenOrSystem(info.Attributes))) files.Add(info); }
-                    catch { counters.Skipped++; }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { counters.Skipped++; }
                 }
             }
-            catch { counters.Skipped++; }
-            if (files.Count % 500 < 30) progress.Report($"Discovering files  •  {files.Count:N0} found");
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { counters.Skipped++; }
+            if (lastReport.ElapsedMilliseconds >= 150) { progress.Report($"Discovering files  •  {files.Count:N0} found"); lastReport.Restart(); }
         }
         return files;
     }
@@ -127,7 +135,12 @@ public static class DuplicateScanner
         return Convert.ToHexString(SHA256.HashData(buffer));
     }
 
-    static bool TryCached(ConcurrentDictionary<string, CacheEntry> cache, FileInfo file, out CacheEntry? entry) => cache.TryGetValue(file.FullName, out entry) && entry.Size == file.Length && entry.Ticks == file.LastWriteTimeUtc.Ticks;
+    static bool TryCached(ConcurrentDictionary<string, CacheEntry> cache, FileInfo file, out CacheEntry? entry)
+    {
+        if (cache.TryGetValue(file.FullName, out entry) && entry.Size == file.Length && entry.Ticks == file.LastWriteTimeUtc.Ticks) return true;
+        entry = null; // Never carry a stale full hash into a newly sampled entry.
+        return false;
+    }
     static bool HasHiddenOrSystem(FileAttributes attributes) => (attributes & (FileAttributes.Hidden | FileAttributes.System)) != 0;
     static ParallelOptions ParallelOptions(CancellationToken token) => new() { CancellationToken = token, MaxDegreeOfParallelism = Math.Clamp(Environment.ProcessorCount / 2, 1, 4) };
     static Dictionary<string, CacheEntry> Load(string path) { try { return JsonSerializer.Deserialize<Dictionary<string, CacheEntry>>(File.ReadAllText(path)) ?? new(StringComparer.OrdinalIgnoreCase); } catch { return new(StringComparer.OrdinalIgnoreCase); } }
