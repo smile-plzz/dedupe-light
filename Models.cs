@@ -15,4 +15,4 @@ public sealed class DuplicateItem
 }
 
 public sealed record ScanOptions(long MinimumBytes, bool IncludeHiddenSystem);
-public sealed record ScanResult(List<DuplicateItem> Items, int FilesSeen, int CandidatesHashed, int Skipped);
+public sealed record ScanResult(List<DuplicateItem> Items, int FilesSeen, int SizeCandidates, int FullHashes, int CacheHits, int Skipped);

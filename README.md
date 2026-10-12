@@ -7,16 +7,19 @@ DedupeLight scans any folder or drive, narrows candidates by file size, verifies
 ## Features
 
 - Scan any folder or drive
+- Drag a folder into the window to select it
 - Minimum file-size filter and optional hidden/system file scanning
 - Search duplicate results by file name or location
+- Sort results by set, name, location, size, or modified time
 - See duplicate-set count and recoverable space
-- Select extra copies while keeping the oldest file in every set
+- Select extra copies while keeping the oldest, newest, or shortest-path copy
 - Safety check prevents recycling every copy in a set
 - Open files or reveal them in Windows Explorer
 - Recycle, move, or copy selected files
 - Export results to CSV
 - Cancel scans and continue past inaccessible locations
 - Avoids directory junction loops and reuses cached hashes
+- Remembers the last location and scan preferences
 
 ## Requirements
 
@@ -52,8 +55,11 @@ The executable is written to `bin/Release/net9.0-windows/win-x64/publish/`.
 
 1. Files below the chosen minimum size are ignored.
 2. Remaining files are grouped by byte size, so unique-size files never need hashing.
-3. Only possible duplicates are hashed with SHA-256.
-4. A local cache reuses hashes when a file's path, size, and modification time are unchanged.
+3. A lightweight fingerprint reads only the first and last 64 KB of larger candidates.
+4. Only files that still match are fully verified with SHA-256.
+5. A local cache reuses fingerprints and full hashes when a file's path, size, and modification time are unchanged.
+
+The partial fingerprint is only a performance filter. DedupeLight never reports large files as duplicates until their complete SHA-256 hashes match.
 
 The cache is stored under `%LOCALAPPDATA%\DedupeLight` and is not added to the repository.
 
