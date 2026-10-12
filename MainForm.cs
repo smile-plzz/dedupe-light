@@ -24,7 +24,7 @@ public sealed class MainForm : Form
     string CachePath=>Path.Combine(appDataPath,"hash-cache.json"); string SettingsPath=>Path.Combine(appDataPath,"settings.json");
     List<DuplicateItem> allItems=[]; CancellationTokenSource? cts; int sortColumn=0; bool sortAscending=true; bool busy, rebinding;
 
-    public MainForm(){Text="DedupeLight";Width=1180;Height=800;MinimumSize=new Size(940,640);AutoScaleMode=AutoScaleMode.Dpi;DoubleBuffered=true;StartPosition=FormStartPosition.CenterScreen;Font=new Font("Segoe UI",10f);BackColor=Canvas;ForeColor=Ink;AllowDrop=true;keepRule.Items.AddRange(["Keep oldest","Keep newest","Keep shortest path"]);keepRule.SelectedIndex=0;BuildLayout();ConfigureGrid();WireEvents();LoadPreferences();SetBusy(false);UpdateSummary();}
+    public MainForm(){Text="DedupeLight";Icon=System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath);Width=1180;Height=800;MinimumSize=new Size(940,640);AutoScaleMode=AutoScaleMode.Dpi;DoubleBuffered=true;StartPosition=FormStartPosition.CenterScreen;Font=new Font("Segoe UI",10f);BackColor=Canvas;ForeColor=Ink;AllowDrop=true;keepRule.Items.AddRange(["Keep oldest","Keep newest","Keep shortest path"]);keepRule.SelectedIndex=0;BuildLayout();ConfigureGrid();WireEvents();LoadPreferences();SetBusy(false);UpdateSummary();}
     readonly Label emptyState=new(){Dock=DockStyle.Fill,TextAlign=ContentAlignment.MiddleCenter,ForeColor=Muted,Font=new Font("Segoe UI",12),Text="A little more room for what matters.\n\nChoose a folder or drop one here to find exact duplicates."};
     readonly System.Windows.Forms.Timer filterDelay=new(){Interval=180};
     bool hasScanned;
@@ -42,6 +42,9 @@ public sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute,148));
         var header=new Panel{Dock=DockStyle.Fill};
         header.Controls.AddRange([new Label{Text="DedupeLight",AutoSize=true,Font=new Font("Segoe UI Semibold",23),ForeColor=Ink,Location=new Point(0,0)},new Label{Text="Less clutter. More space.",AutoSize=true,ForeColor=Muted,Location=new Point(3,47)}]);
+        var about=MakeButton("About",true);about.Anchor=AnchorStyles.Top|AnchorStyles.Right;about.Location=new Point(Width-160,8);
+        about.Click+=(_,_)=>MessageBox.Show(this,"DedupeLight 1.0.0\nLess clutter. More space.\n\nCreated by Ismail Hossain · MIT license\nExact duplicates only · local scanning\n\ngithub.com/smile-plzz/dedupe-light","About DedupeLight",MessageBoxButtons.OK,MessageBoxIcon.Information);
+        header.Controls.Add(about);header.Resize+=(_,_)=>about.Location=new Point(Math.Max(0,header.ClientSize.Width-about.Width-4),8);
         layout.Controls.Add(header,0,0);
         var location=new SurfaceCard{Dock=DockStyle.Fill,Margin=new Padding(0,0,0,4)};
         var fields=new TableLayoutPanel{Dock=DockStyle.Fill,ColumnCount=4,RowCount=2,BackColor=Surface};
