@@ -1,0 +1,14 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.pdb
+*.publish.xml
+*.pubxml.user
+TestResults/
+artifacts/
+publish/
+.DS_Store
+Thumbs.db
